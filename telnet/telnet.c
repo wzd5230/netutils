@@ -509,7 +509,55 @@ static void telnet_thread(void* parameter)
         {
             continue;
         }
-
+        
+#if (defined(LWIP_SO_SNDTIMEO) && LWIP_SO_SNDTIMEO) || defined(RT_USING_DFS_NET) || defined(SAL_USING_POSIX)
+        /* set send timeout */
+        struct timeval snd_to = {0};
+        snd_to.tv_sec = 0;
+        snd_to.tv_usec = 5000 * 1000;
+        if (setsockopt(telnet->client_fd, SOL_SOCKET, SO_SNDTIMEO, (void *)&snd_to, sizeof(snd_to)) < 0)
+        {
+            closesocket(telnet->client_fd);
+            rt_kprintf("telnet:set socket send timeout failed\n");
+            continue;
+        }
+#endif /* (defined(LWIP_SO_SNDTIMEO) && LWIP_SO_SNDTIMEO) || defined(RT_USING_DFS_NET) || defined(SAL_USING_POSIX) */
+        
+        /* set keepalive */
+        rt_int32_t keepalive_en = 1;
+        if (setsockopt(telnet->client_fd, SOL_SOCKET, SO_KEEPALIVE, (void *)&keepalive_en, sizeof(keepalive_en)) < 0)
+        {
+            closesocket(telnet->client_fd);
+            rt_kprintf("telnet:set socket keepalive failed\n");
+            continue;
+        }
+        
+#if (defined(LWIP_TCP_KEEPALIVE) && LWIP_TCP_KEEPALIVE) || defined(RT_USING_DFS_NET) || defined(SAL_USING_POSIX)
+        int keepidle = 5;
+        if (setsockopt(telnet->client_fd, IPPROTO_TCP, TCP_KEEPIDLE, (void *)&keepidle, sizeof(keepidle)) < 0)
+        {
+            closesocket(telnet->client_fd);
+            rt_kprintf("telnet:set socket keepidle failed\n");
+            continue;
+        }
+        
+        int keepintvl = 1;
+        if (setsockopt(telnet->client_fd, IPPROTO_TCP, TCP_KEEPINTVL, (void *)&keepintvl, sizeof(keepintvl)) < 0)
+        {
+            closesocket(telnet->client_fd);
+            rt_kprintf("telnet:set socket keepintvl failed\n");
+            continue;
+        }
+        
+        int keepcnt = 3;
+        if (setsockopt(telnet->client_fd, IPPROTO_TCP, TCP_KEEPCNT, (void *)&keepcnt, sizeof(keepcnt)) < 0)
+        {
+            closesocket(telnet->client_fd);
+            rt_kprintf("telnet:set socket keepcnt failed\n");
+            continue;
+        }
+#endif /* (defined(LWIP_TCP_KEEPALIVE) && LWIP_TCP_KEEPALIVE) || defined(RT_USING_DFS_NET) || defined(SAL_USING_POSIX) */
+        
         rt_kprintf("telnet: new telnet client(%s:%d) connection, switch console to telnet...\n", inet_ntoa(addr.sin_addr), addr.sin_port);
 
         /* process the new connection */
